@@ -144,6 +144,11 @@ data/export_data/<name>/
 Without a usable `/camera_info`, put `camera_intrinsic.json` into the dataset folder so the
 GUI / solver can read K, D. Keep the raw measurements under `data/intrinsics/`.
 
+Measure the intrinsics with the ROS 2 `camera_calibration` package
+(`ros2 run camera_calibration cameracalibrator --size 8x6 --square 0.025 image:=/cam0/image_raw camera:=/cam0`);
+its `ost.txt` / `ost.yaml` output is read directly by the commands below. This is the only
+step that uses ROS — the rest of the toolkit does not need it.
+
 ```bash
 # from a file (ost txt / camera_info yaml / json)
 python tools/calibration/set_intrinsic.py --dataset data/export_data/<name> --file data/intrinsics/cam0.yaml

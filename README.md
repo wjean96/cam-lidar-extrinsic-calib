@@ -45,6 +45,25 @@ data/
 
 To rebuild a sample from a full extraction use `tools/extraction/make_sample.py`.
 
+## Camera intrinsics
+
+This toolkit solves **extrinsics only**; the camera intrinsics (K, D) are an input and are
+kept fixed. Calibrate them with the standard ROS 2 `camera_calibration` package
+(a printed checkerboard, `cameracalibrator`):
+
+```bash
+# ROS 2 (Humble): calibrate cam0 with an 8x6 checkerboard of 25 mm squares
+sudo apt install ros-humble-camera-calibration
+ros2 run camera_calibration cameracalibrator --size 8x6 --square 0.025 \
+    image:=/cam0/image_raw camera:=/cam0
+# after "CALIBRATE" -> "SAVE": /tmp/calibrationdata.tar.gz contains ost.txt / ost.yaml
+```
+
+Either file is accepted by the tools here (`--intrinsic` on `export_bag.py`, or
+`tools/calibration/set_intrinsic.py --file`). Take a few runs and use the median if they
+disagree — on our cam0 three runs gave fx = 684 / 719 / 691. Only the intrinsics step uses
+ROS; everything else in this repository runs without a ROS installation.
+
 ## Pipeline
 
 ```

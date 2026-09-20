@@ -183,6 +183,12 @@ verdict**; labeled frames also show the reprojected grid (white) and the hand-pl
 
 ## Intrinsics
 
+Intrinsics are an **input** to this toolkit and stay fixed during the extrinsic solve.
+Obtain them with the ROS 2 `camera_calibration` package (`cameracalibrator` with a printed
+checkerboard); the `ost.txt` / `ost.yaml` it saves is parsed by `set_intrinsic.py --file` and
+`export_bag.py --intrinsic`. Repeat the calibration a few times and use the per-component
+median when runs disagree.
+
 The indoor bag's `/camera_info` is all zeros — use `cam_intrinsic.txt` at the repository root
 (copied into the export folder). The Sonata bags have no camera_info; three measurements are
 kept in `data/intrinsics/cam0_sonata_trial{1,2,3}.txt` and their per-component median
