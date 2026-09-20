@@ -1,0 +1,90 @@
+{
+  "image_width": 1280,
+  "image_height": 720,
+  "camera_matrix": [
+    690.516242,
+    0.0,
+    637.689178,
+    0.0,
+    690.821798,
+    360.599901,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "distortion_coefficients": [
+    -0.27612,
+    0.056905,
+    -6.1e-05,
+    0.000354,
+    0.0
+  ],
+  "distortion_model": "plumb_bob",
+  "camera_name": "cam0_sonata_front",
+  "source": "data/intrinsics/cam0_sonata_trial{1,2,3}.txt \uc131\ubd84\ubcc4 \uc911\uc559\uac12 (2026-09-16 3\ud68c \uce21\uc815)",
+  "trials": [
+    {
+      "file": "cam0_sonata_trial1.txt",
+      "camera_matrix": [
+        683.809923,
+        0.0,
+        646.971543,
+        0.0,
+        685.772634,
+        361.097984,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "distortion_coefficients": [
+        -0.272677,
+        0.053484,
+        -0.001186,
+        -0.001468,
+        0.0
+      ]
+    },
+    {
+      "file": "cam0_sonata_trial2.txt",
+      "camera_matrix": [
+        718.912124,
+        0.0,
+        634.782782,
+        0.0,
+        721.964826,
+        359.484497,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "distortion_coefficients": [
+        -0.279405,
+        0.057915,
+        -6.1e-05,
+        0.000354,
+        0.0
+      ]
+    },
+    {
+      "file": "cam0_sonata_trial3.txt",
+      "camera_matrix": [
+        690.516242,
+        0.0,
+        637.689178,
+        0.0,
+        690.821798,
+        360.599901,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "distortion_coefficients": [
+        -0.27612,
+        0.056905,
+        0.000445,
+        0.000443,
+        0.0
+      ]
+    }
+  ]
+}

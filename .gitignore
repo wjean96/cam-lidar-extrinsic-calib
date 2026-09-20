@@ -1,0 +1,35 @@
+# ---- 원본/대용량 데이터: 저장소에 올리지 않는다 --------------------------
+# rosbag2 원본 (수 GB)
+data/bag_data/
+# 추출 결과 (png/pcd, 수 GB) — 샘플은 data/samples/ 에 별도로 둔다
+data/export_data/
+# 동영상
+*.mp4
+*.avi
+*.mkv
+# rosbag sqlite
+*.db3
+*.db3-shm
+*.db3-wal
+
+# ---- 샘플과 내부 파라미터는 올린다 ------------------------------------------
+!data/samples/
+!data/intrinsics/
+
+# ---- Python / 편집기 -----------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ipynb_checkpoints/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# ---- 작업 중 생기는 임시/백업 -------------------------------------------------
+*.bak
+*.tmp
+*.log
+data/samples/**/projection_check/
