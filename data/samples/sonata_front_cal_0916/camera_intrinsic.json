@@ -21,10 +21,10 @@
   ],
   "distortion_model": "plumb_bob",
   "camera_name": "cam0_sonata_front",
-  "source": "data/intrinsics/cam0_sonata_trial{1,2,3}.txt \uc131\ubd84\ubcc4 \uc911\uc559\uac12 (2026-09-16 3\ud68c \uce21\uc815)",
+  "source": "per-component median of three ROS 2 camera_calibration runs (2026-09-16); the raw runs are embedded in \"trials\"",
   "trials": [
     {
-      "file": "cam0_sonata_trial1.txt",
+      "file": "run1",
       "camera_matrix": [
         683.809923,
         0.0,
@@ -45,7 +45,7 @@
       ]
     },
     {
-      "file": "cam0_sonata_trial2.txt",
+      "file": "run2",
       "camera_matrix": [
         718.912124,
         0.0,
@@ -66,7 +66,7 @@
       ]
     },
     {
-      "file": "cam0_sonata_trial3.txt",
+      "file": "run3",
       "camera_matrix": [
         690.516242,
         0.0,
