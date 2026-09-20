@@ -5,7 +5,8 @@ For GitHub: the raw data (GBs) is excluded via .gitignore, and a handful of labe
 are copied so the GUI / solve / project_lidar still run out of the box.
 
 Copied: png/pcd of the chosen frames, index.csv and board_annotations.json trimmed to those
-frames, camera_intrinsic.json, extraction_meta.json, and extrinsic.json (if given).
+frames, camera_intrinsic.json, and extrinsic.json (if given). extraction_meta.json only
+with --with-meta.
 
 Usage:
     python tools/extraction/make_sample.py \
@@ -37,6 +38,8 @@ def main() -> int:
     ap.add_argument("--n", type=int, default=4, help="--frames 생략 시 고를 개수 (라벨 점수 많은 순)")
     ap.add_argument("--extrinsic", default=None,
                     help="샘플에 extrinsic.json 으로 넣을 파일 (기본: <dataset>/extrinsic.json 이 있으면)")
+    ap.add_argument("--with-meta", action="store_true",
+                    help="also copy extraction_meta.json (provenance only; no tool reads it)")
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()
 
@@ -77,7 +80,11 @@ def main() -> int:
         w.writeheader()
         w.writerows(by_key[k] for k in keys)
 
-    for name in ("camera_intrinsic.json", "extraction_meta.json"):
+    # Only what the tools read goes into a sample. extraction_meta.json is provenance
+    # (topics, sync stats, export arguments) that nothing consumes; index.csv already
+    # carries source_bag and dt per frame, so it is opt-in.
+    names = ["camera_intrinsic.json"] + (["extraction_meta.json"] if args.with_meta else [])
+    for name in names:
         p = os.path.join(src, name)
         if os.path.isfile(p):
             shutil.copy2(p, os.path.join(out, name))
