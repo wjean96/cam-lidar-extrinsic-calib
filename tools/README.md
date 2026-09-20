@@ -37,8 +37,6 @@ tools/
 │   ├── solve_extrinsic.py   # PnP optimization (EPnP -> LM)
 │   ├── project_lidar.py     # reprojection check images
 │   └── make_video.py        # LiDAR projection video (H.264)
-└── config/
-    └── camera_extrinsic_2026_09_10.sh
 ```
 
 `common/` is library code; everything else is a CLI entry point. Scripts put `tools/` on
@@ -341,8 +339,8 @@ Details in [calibration/README.md](calibration/README.md).
 
 - Bags `sonata_front_cal_real0916` + `sonata_front_cal_real_2_0916` extracted together (stride 4, 549 frames)
 - Only two topics, `/cam0/image_raw/compressed` (jpeg 1280×720) and `/velodyne_points` (32 rings),
-  **no camera_info** → the per-component **median** of three ost measurements
-  (`data/intrinsics/cam0_sonata_trial{1,2,3}.txt`) is the intrinsics (`cam0_sonata_median.json`).
+  **no camera_info** → the per-component **median** of three ost measurements is the
+  intrinsics (`data/intrinsics/cam0_sonata_median.json`, which also stores the three raw runs).
   fx varied 684 / 719 / 691 between runs (5 %)
 - Stable timestamps on both topics (no velodyne header drift), 20 Hz, median sync error 11 ms
 - Several checkerboards on tripods standing still at 5–15 m; label several boards per frame

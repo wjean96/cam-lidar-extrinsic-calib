@@ -190,9 +190,9 @@ checkerboard); the `ost.txt` / `ost.yaml` it saves is parsed by `set_intrinsic.p
 median when runs disagree.
 
 The indoor bag's `/camera_info` is all zeros — use `data/intrinsics/cam_indoor_640x480.txt`
-(copied into the export folder as camera_intrinsic.json). The Sonata bags have no camera_info; three measurements are
-kept in `data/intrinsics/cam0_sonata_trial{1,2,3}.txt` and their per-component median
-(`cam0_sonata_median.json`) is used.
+(copied into the export folder as camera_intrinsic.json). The Sonata bags have no camera_info; three measurements were
+taken and their per-component median is used (`data/intrinsics/cam0_sonata_median.json`,
+which also stores the three raw runs).
 
     indoor 640x480:  K = [648.242643, 0, 304.728650; 0, 638.992719, 227.912645; 0, 0, 1]
                      D = [-0.428209, 0.202593, -0.000709, 0.000829, 0]

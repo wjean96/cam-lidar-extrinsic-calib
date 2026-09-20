@@ -45,7 +45,7 @@ python tools/calibration/project_lidar.py   --dataset data/samples/sonata_front_
 ```
 data/
 ├── samples/      a few labeled frames + labels + intrinsics/extrinsics (in repo, a few MB)
-├── intrinsics/   measured camera intrinsics: indoor 640x480 + Sonata cam0 x3 (in repo)
+├── intrinsics/   measured camera intrinsics: indoor 640x480 + Sonata cam0 median of 3 runs (in repo)
 ├── bag_data/     raw rosbag2 recordings          (.gitignore)
 └── export_data/  extracted png/pcd, videos       (.gitignore)
 ```
