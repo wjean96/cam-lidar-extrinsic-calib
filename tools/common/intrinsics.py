@@ -1,6 +1,6 @@
 """Parse camera intrinsic files (camera_calibration 'ost' format, ROS YAML, our JSON).
 
-The indoor bag's /camera_info is all zeros, so cam_intrinsic.txt is the only source of
+The indoor bag's /camera_info is all zeros, so data/intrinsics/cam_indoor_640x480.txt is the only source of
 intrinsics there; the outdoor bags have no camera_info at all.
 """
 from __future__ import annotations

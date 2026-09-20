@@ -15,6 +15,6 @@ python "$ROOT/tools/extraction/export_bag.py" \
     --time-source bag \
     --max-dt 30 \
     --pcd-fields x,y,z,intensity,ring \
-    --intrinsic "$ROOT/cam_intrinsic.txt" \
+    --intrinsic "$ROOT/data/intrinsics/cam_indoor_640x480.txt" \
     --overwrite \
     "$@"

@@ -189,8 +189,8 @@ checkerboard); the `ost.txt` / `ost.yaml` it saves is parsed by `set_intrinsic.p
 `export_bag.py --intrinsic`. Repeat the calibration a few times and use the per-component
 median when runs disagree.
 
-The indoor bag's `/camera_info` is all zeros — use `cam_intrinsic.txt` at the repository root
-(copied into the export folder). The Sonata bags have no camera_info; three measurements are
+The indoor bag's `/camera_info` is all zeros — use `data/intrinsics/cam_indoor_640x480.txt`
+(copied into the export folder as camera_intrinsic.json). The Sonata bags have no camera_info; three measurements are
 kept in `data/intrinsics/cam0_sonata_trial{1,2,3}.txt` and their per-component median
 (`cam0_sonata_median.json`) is used.
 

@@ -100,7 +100,7 @@ python tools/extraction/export_bag.py \
     --bag data/bag_data/rosbag2_2026_09_10_camera_extrinsic \
     --out data/export_data \
     --max-dt 30 \
-    --intrinsic cam_intrinsic.txt
+    --intrinsic data/intrinsics/cam_indoor_640x480.txt
 
 # merge several bags into one folder (--name required); index.csv gets a source_bag column
 python tools/extraction/export_bag.py \
@@ -351,7 +351,7 @@ Details in [calibration/README.md](calibration/README.md).
 ### rosbag2_2026_09_10_camera_extrinsic (indoor, 640×480 + VLP-16)
 
 - `/image_raw` is `yuv422_yuy2` → converted to BGR on export
-- `/camera_info` is **all zeros** → `cam_intrinsic.txt` is the only valid intrinsics
+- `/camera_info` is **all zeros** → `data/intrinsics/cam_indoor_640x480.txt` is the only valid intrinsics
 - `/velodyne_points` `header.stamp` drifts by **up to ~1 s** against receive time (typical
   without PPS/GPS) → sync with `--time-source bag`
 - VLP-16: vertical FOV ±14.9°, ~14.8k valid of 29184 points per scan, azimuth coverage
