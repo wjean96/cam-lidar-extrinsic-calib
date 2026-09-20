@@ -9,6 +9,18 @@ as a planar target; a human labels the boards in a GUI and PnP solves `T_cam_lid
   dragged onto the real checker intersections for precision
 - Label quality is judged by leave-one-out stability, not by reprojection RMS alone
 
+## Screenshots
+
+Labeling GUI — camera view with numbered grid vertices (left), LiDAR 3D view with the
+selected boards (top right), in-plane 2D view where the size-locked 50 cm square is aligned
+with the checker cells (bottom right), and the solve result dock:
+
+![Labeling GUI](docs/images/gui_overview.jpg)
+
+| LiDAR 3D view — six labeled boards, viewed head-on | Plane 2D view — grid aligned with the black/white cells |
+|:--:|:--:|
+| ![LiDAR panel](docs/images/lidar_panel.png) | ![Plane panel](docs/images/plane_panel.png) |
+
 Full usage and folder layout: [tools/README.md](tools/README.md).
 Calibration procedure, accuracy and pitfalls: [tools/calibration/README.md](tools/calibration/README.md).
 
