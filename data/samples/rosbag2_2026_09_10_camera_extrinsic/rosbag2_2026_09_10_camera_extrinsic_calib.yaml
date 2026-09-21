@@ -1,0 +1,72 @@
+# Camera-LiDAR calibration result — rosbag2_2026_09_10_camera_extrinsic
+# Solved 2026-09-10 20:28:00 from 3 frames / 5 boards / 45 correspondences, reprojection RMS 5.98 px. Leave-one-board-out stability 3.45 deg / 107.2 mm (verdict: unstable).
+# Intrinsics were kept fixed during the extrinsic solve.
+#
+# Frames (ROS convention): lidar  = x forward, y left, z up
+#                          camera = optical: x right, y down, z forward
+# Convention: p_cam = R_cam_lidar * p_lidar + t_cam_lidar
+
+camera:
+  name: camera
+  frame_id: camera
+  image_width: 640
+  image_height: 480
+  distortion_model: plumb_bob
+  fx: 648.242643
+  fy: 638.992719
+  cx: 304.728650
+  cy: 227.912645
+  camera_matrix:            # 3x3 row-major
+    [648.242643, 0.0, 304.728650,
+     0.0, 638.992719, 227.912645,
+     0.0, 0.0, 1.0]
+  distortion: [-0.428209, 0.202593, -0.000709, 0.000829, 0.000000]   # k1 k2 p1 p2 k3
+  source: cam_intrinsic.txt
+
+extrinsic:
+  lidar_frame_id: velodyne
+  camera_frame_id: camera
+  # LiDAR -> camera (use this to project LiDAR points into the image)
+  T_cam_lidar:              # 4x4 row-major
+    [[ -0.081121,  -0.996697,  -0.003835,   0.021174],
+     [  0.106797,  -0.004867,  -0.994269,   0.078512],
+     [  0.990966,  -0.081066,   0.106839,  -0.070032],
+     [  0.000000,   0.000000,   0.000000,   1.000000]]
+  R_cam_lidar:
+    [[ -0.081121,  -0.996697,  -0.003835],
+     [  0.106797,  -0.004867,  -0.994269],
+     [  0.990966,  -0.081066,   0.106839]]
+  t_cam_lidar: [0.021174, 0.078512, -0.070032]              # meters
+  rvec_cam_lidar: [1.090445, -1.187880, 1.317669]           # Rodrigues, for cv2.projectPoints
+  quaternion_cam_lidar_xyzw: [0.451914, -0.492294, 0.546083, 0.505186]
+
+  # camera -> LiDAR (inverse; camera position expressed in the LiDAR frame)
+  T_lidar_cam:
+    [[ -0.081121,   0.106797,   0.990966,   0.062732],
+     [ -0.996697,  -0.004867,  -0.081066,   0.015809],
+     [ -0.003835,  -0.994269,   0.106839,   0.085625],
+     [  0.000000,   0.000000,   0.000000,   1.000000]]
+  camera_position_in_lidar_frame: [0.062732, 0.015809, 0.085625]   # +6.3 cm forward, +1.6 cm left, +8.6 cm up of the LiDAR
+  quaternion_lidar_cam_xyzw: [-0.451914, 0.492294, -0.546083, 0.505186]
+
+  # deviation from the nominal optical mount (x right, y down, z forward looking along LiDAR +x)
+  mount_delta_deg: {yaw: 4.680, pitch: 6.131, roll: 0.280, total: 7.707}
+
+quality:
+  frames_used: ['000000', '000094', '000108']
+  n_boards: 5
+  n_points: 45
+  reprojection_rms_px: 5.984
+  leave_one_board_out: {rotation_deg: 3.452, translation_mm: 107.2}
+  jackknife_translation_mm: 42.0
+  stable: false
+
+ros2:
+  # tf2: parent = velodyne, child = camera  (x y z qx qy qz qw)
+  static_transform_publisher_velodyne_to_camera: >
+    ros2 run tf2_ros static_transform_publisher
+    0.062732 0.015809 0.085625 -0.451914 0.492294 -0.546083 0.505186 velodyne camera
+  # tf2: parent = camera, child = velodyne
+  static_transform_publisher_camera_to_velodyne: >
+    ros2 run tf2_ros static_transform_publisher
+    0.021174 0.078512 -0.070032 0.451914 -0.492294 0.546083 0.505186 camera velodyne

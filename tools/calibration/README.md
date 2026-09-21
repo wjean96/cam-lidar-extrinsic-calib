@@ -46,8 +46,11 @@ directly, with `p_cam = R * p_lidar + t`.
 
 - `--max-reproj 3.0` drops frames whose reprojection error exceeds the threshold and
   re-solves; useful for catching frames with a wrong corner order.
-- The result is written to `<dataset>/extrinsic.json` (4x4 transform, quaternion, and a
-  ready-made ROS `static_transform_publisher` command).
+- Results are written to the dataset folder as `extrinsic.json` (machine-readable),
+  **`<dataset>_calib.yaml`** (human-readable: intrinsics, `T_cam_lidar` and inverse, rvec /
+  quaternion, camera position in the LiDAR frame, quality, ready-made `static_transform_publisher`
+  commands) and `<camera>_camera_info.yaml` (ROS camera_info). `export_calib.py` regenerates the
+  two yaml files from an existing `extrinsic.json`.
 
 ### Intrinsics are kept fixed
 

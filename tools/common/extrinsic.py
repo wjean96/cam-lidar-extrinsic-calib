@@ -103,6 +103,7 @@ class ExtrinsicResult:
     dropped: List[str] = field(default_factory=list)
     coplanar_ratio: float = 0.0
     board_angle_max: float = 0.0
+    n_points_override: Optional[int] = None     # set when rebuilt from a JSON without units
 
     @property
     def T(self) -> np.ndarray:
@@ -112,7 +113,22 @@ class ExtrinsicResult:
 
     @property
     def n_points(self) -> int:
+        if self.n_points_override is not None:
+            return int(self.n_points_override)
         return int(sum(len(u.obj) for u in self.units))
+
+    @staticmethod
+    def from_dict(d: dict) -> "ExtrinsicResult":
+        """Rebuild a summary result from a saved extrinsic.json (no correspondences)."""
+        res = ExtrinsicResult(R=np.array(d["R_cam_lidar"], float), t=np.array(d["t_cam_lidar"], float),
+                              rms=float(d.get("reprojection_rms_px", 0.0)),
+                              units=[None] * int(d.get("n_boards", 0)),
+                              keys_used=list(d.get("frames_used", [])),
+                              per_frame=dict(d.get("reprojection_per_frame_px", {})),
+                              coplanar_ratio=float(d.get("coplanar_ratio", 0.0)),
+                              board_angle_max=float(d.get("board_angle_max_deg", 0.0)),
+                              n_points_override=int(d.get("n_points", 0)))
+        return res
 
     @property
     def mount_delta(self):
@@ -228,6 +244,16 @@ class Diagnosis:
     # boards whose hand-placed grid is worse than the homography one = grid tied to an old corner order
     stale_grid: List[Tuple[str, int, float, float]] = field(default_factory=list)
     advice: List[str] = field(default_factory=list)
+
+    @staticmethod
+    def from_dict(d: Optional[dict]) -> Optional["Diagnosis"]:
+        if not d:
+            return None
+        return Diagnosis(stable=bool(d.get("stable", False)),
+                         worst_rot=float(d.get("worst_rot_deg", 0.0)),
+                         worst_trans=float(d.get("worst_trans_mm", 0.0)),
+                         jack_trans=float(d.get("jackknife_trans_mm", 0.0)),
+                         advice=list(d.get("advice", [])))
 
 
 def diagnose(result: ExtrinsicResult, K, D, target_rot: float = 0.5,
@@ -476,3 +502,171 @@ def refine(units: List[Unit], K, D, R0: np.ndarray, t0: np.ndarray,
     info.message = (f"{opts.label()}  RMS {rms_before:.3f} -> {info.rms_after:.3f} px "
                     f"(parameters {n_par}, residuals {n_res}){note}")
     return cv2.Rodrigues(rvec)[0], np.asarray(t, float).ravel(), info
+
+
+# ------------------------------------------------------------ user-facing output files
+def _mat_rows(M: np.ndarray, indent: str, width: int = 10, prec: int = 6) -> str:
+    """Format a matrix as YAML nested lists, one row per line, aligned columns."""
+    M = np.asarray(M, float)
+    rows = []
+    for i, r in enumerate(M):
+        cells = ", ".join(f"{v:{width}.{prec}f}" for v in r)
+        open_b = "[" if i == 0 else " "                 # outer list opens on the first row
+        close_b = "]" if i == len(M) - 1 else ","       # and closes on the last
+        rows.append(f"{indent}{open_b}[{cells}]{close_b}")
+    return "\n".join(rows)
+
+
+def _vec(v, prec: int = 6) -> str:
+    return "[" + ", ".join(f"{float(x):.{prec}f}" for x in np.asarray(v).ravel()) + "]"
+
+
+def format_calib_yaml(res: ExtrinsicResult, K, D, image_size, dataset_name: str,
+                      camera_frame: str = "camera", lidar_frame: str = "velodyne",
+                      solved_at: str = "", intrinsics_source: str = "",
+                      diagnosis: Optional["Diagnosis"] = None,
+                      camera_name: Optional[str] = None) -> str:
+    """One human-readable YAML with intrinsics, extrinsics (both directions), quality and tf commands.
+
+    Written next to extrinsic.json by solve_extrinsic.py and the GUI so users never have to
+    dig the numbers out of the JSON.
+    """
+    K = np.asarray(K, float).reshape(3, 3)
+    Dv = np.asarray(D, float).ravel()
+    T = res.T
+    Ti = np.linalg.inv(T)
+    R, t = T[:3, :3], T[:3, 3]
+    q = quat_xyzw(R)
+    qi = quat_xyzw(Ti[:3, :3])
+    rv = cv2.Rodrigues(R)[0].ravel()
+    _, ang, (dy, dp, dr) = res.mount_delta
+    w, h = (image_size or (0, 0))
+    cam_pos = Ti[:3, 3]
+    stable = diagnosis.stable if diagnosis is not None else None
+    L = []
+    L.append(f"# Camera-LiDAR calibration result — {dataset_name}")
+    L.append(f"# Solved {solved_at or 'n/a'} from {len(res.keys_used)} frames / {len(res.units)} boards / "
+             f"{res.n_points} correspondences, reprojection RMS {res.rms:.2f} px."
+             + (f" Leave-one-board-out stability {diagnosis.worst_rot:.2f} deg / {diagnosis.worst_trans:.1f} mm "
+                f"(verdict: {'stable' if diagnosis.stable else 'unstable'})." if diagnosis is not None else ""))
+    L.append("# Intrinsics were kept fixed during the extrinsic solve.")
+    L.append("#")
+    L.append("# Frames (ROS convention): lidar  = x forward, y left, z up")
+    L.append("#                          camera = optical: x right, y down, z forward")
+    L.append("# Convention: p_cam = R_cam_lidar * p_lidar + t_cam_lidar")
+    L.append("")
+    L.append("camera:")
+    L.append(f"  name: {camera_name or camera_frame}")
+    L.append(f"  frame_id: {camera_frame}")
+    L.append(f"  image_width: {int(w)}")
+    L.append(f"  image_height: {int(h)}")
+    L.append("  distortion_model: plumb_bob")
+    L.append(f"  fx: {K[0,0]:.6f}")
+    L.append(f"  fy: {K[1,1]:.6f}")
+    L.append(f"  cx: {K[0,2]:.6f}")
+    L.append(f"  cy: {K[1,2]:.6f}")
+    L.append("  camera_matrix:            # 3x3 row-major")
+    L.append(f"    [{K[0,0]:.6f}, {K[0,1]:.1f}, {K[0,2]:.6f},")
+    L.append(f"     {K[1,0]:.1f}, {K[1,1]:.6f}, {K[1,2]:.6f},")
+    L.append(f"     {K[2,0]:.1f}, {K[2,1]:.1f}, {K[2,2]:.1f}]")
+    L.append(f"  distortion: {_vec(Dv)}   # k1 k2 p1 p2 k3")
+    if intrinsics_source:
+        L.append(f"  source: {intrinsics_source}")
+    L.append("")
+    L.append("extrinsic:")
+    L.append(f"  lidar_frame_id: {lidar_frame}")
+    L.append(f"  camera_frame_id: {camera_frame}")
+    L.append("  # LiDAR -> camera (use this to project LiDAR points into the image)")
+    L.append("  T_cam_lidar:              # 4x4 row-major")
+    L.append(_mat_rows(T, "    "))
+    L.append("  R_cam_lidar:")
+    L.append(_mat_rows(R, "    "))
+    L.append(f"  t_cam_lidar: {_vec(t)}              # meters")
+    L.append(f"  rvec_cam_lidar: {_vec(rv)}           # Rodrigues, for cv2.projectPoints")
+    L.append(f"  quaternion_cam_lidar_xyzw: {_vec(q)}")
+    L.append("")
+    L.append("  # camera -> LiDAR (inverse; camera position expressed in the LiDAR frame)")
+    L.append("  T_lidar_cam:")
+    L.append(_mat_rows(Ti, "    "))
+    L.append(f"  camera_position_in_lidar_frame: {_vec(cam_pos)}   "
+             f"# {cam_pos[0]*100:+.1f} cm forward, {cam_pos[1]*100:+.1f} cm left, {cam_pos[2]*100:+.1f} cm up of the LiDAR")
+    L.append(f"  quaternion_lidar_cam_xyzw: {_vec(qi)}")
+    L.append("")
+    L.append("  # deviation from the nominal optical mount (x right, y down, z forward looking along LiDAR +x)")
+    L.append(f"  mount_delta_deg: {{yaw: {dy:.3f}, pitch: {dp:.3f}, roll: {dr:.3f}, total: {ang:.3f}}}")
+    L.append("")
+    L.append("quality:")
+    L.append("  frames_used: [" + ", ".join(f"'{k}'" for k in res.keys_used) + "]")
+    L.append(f"  n_boards: {len(res.units)}")
+    L.append(f"  n_points: {res.n_points}")
+    L.append(f"  reprojection_rms_px: {res.rms:.3f}")
+    if diagnosis is not None:
+        L.append(f"  leave_one_board_out: {{rotation_deg: {diagnosis.worst_rot:.3f}, translation_mm: {diagnosis.worst_trans:.1f}}}")
+        L.append(f"  jackknife_translation_mm: {diagnosis.jack_trans:.1f}")
+        L.append(f"  stable: {'true' if stable else 'false'}")
+    L.append("")
+    L.append("ros2:")
+    L.append(f"  # tf2: parent = {lidar_frame}, child = {camera_frame}  (x y z qx qy qz qw)")
+    L.append(f"  static_transform_publisher_{lidar_frame}_to_{camera_frame}: >")
+    L.append("    ros2 run tf2_ros static_transform_publisher")
+    L.append(f"    {cam_pos[0]:.6f} {cam_pos[1]:.6f} {cam_pos[2]:.6f} "
+             f"{qi[0]:.6f} {qi[1]:.6f} {qi[2]:.6f} {qi[3]:.6f} {lidar_frame} {camera_frame}")
+    L.append(f"  # tf2: parent = {camera_frame}, child = {lidar_frame}")
+    L.append(f"  static_transform_publisher_{camera_frame}_to_{lidar_frame}: >")
+    L.append("    ros2 run tf2_ros static_transform_publisher")
+    L.append(f"    {t[0]:.6f} {t[1]:.6f} {t[2]:.6f} "
+             f"{q[0]:.6f} {q[1]:.6f} {q[2]:.6f} {q[3]:.6f} {camera_frame} {lidar_frame}")
+    return "\n".join(L) + "\n"
+
+
+def format_camera_info_yaml(K, D, image_size, camera_name: str = "camera") -> str:
+    """ROS camera_info YAML (camera_calibration / camera_info_manager compatible)."""
+    K = np.asarray(K, float).reshape(3, 3)
+    Dv = np.asarray(D, float).ravel()
+    w, h = (image_size or (0, 0))
+    P = [K[0,0], 0.0, K[0,2], 0.0, 0.0, K[1,1], K[1,2], 0.0, 0.0, 0.0, 1.0, 0.0]
+    return "\n".join([
+        "# ROS camera_info format (camera_calibration / camera_info_manager compatible)",
+        f"image_width: {int(w)}",
+        f"image_height: {int(h)}",
+        f"camera_name: {camera_name}",
+        "camera_matrix:",
+        "  rows: 3",
+        "  cols: 3",
+        f"  data: {_vec(K.ravel())}",
+        "distortion_model: plumb_bob",
+        "distortion_coefficients:",
+        "  rows: 1",
+        f"  cols: {len(Dv)}",
+        f"  data: {_vec(Dv)}",
+        "rectification_matrix:",
+        "  rows: 3",
+        "  cols: 3",
+        "  data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]",
+        "projection_matrix:",
+        "  rows: 3",
+        "  cols: 4",
+        f"  data: {_vec(P)}",
+    ]) + "\n"
+
+
+def write_calib_outputs(out_dir: str, res: ExtrinsicResult, K, D, image_size, dataset_name: str,
+                        camera_frame: str = "camera", lidar_frame: str = "velodyne",
+                        solved_at: str = "", intrinsics_source: str = "",
+                        diagnosis: Optional["Diagnosis"] = None,
+                        camera_name: Optional[str] = None) -> Tuple[str, str]:
+    """Write <dataset>_calib.yaml and <camera>_camera_info.yaml into out_dir. Returns both paths.
+
+    camera_name is a free label for the camera (e.g. "FF" for front-facing); it defaults to the
+    tf frame id and is also written as camera_name in the camera_info file.
+    """
+    import os
+    name = camera_name or camera_frame
+    p1 = os.path.join(out_dir, f"{dataset_name}_calib.yaml")
+    p2 = os.path.join(out_dir, f"{camera_frame}_camera_info.yaml")
+    with open(p1, "w", encoding="utf-8") as f:
+        f.write(format_calib_yaml(res, K, D, image_size, dataset_name, camera_frame, lidar_frame,
+                                  solved_at, intrinsics_source, diagnosis, camera_name=name))
+    with open(p2, "w", encoding="utf-8") as f:
+        f.write(format_camera_info_yaml(K, D, image_size, name))
+    return p1, p2

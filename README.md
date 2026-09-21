@@ -52,7 +52,7 @@ data/
 
 | Sample | Sensors | Contents |
 |--------|---------|----------|
-| `sonata_front_cal_0916` | cam0 1280×720 + VLP-32, outdoor | 4 labeled frames · 23 boards · 207 correspondences · `extrinsic.json` included |
+| `sonata_front_cal_0916` | cam0 1280×720 + VLP-32, outdoor | 4 labeled frames · 23 boards · 207 correspondences · final `extrinsic.json` + `sonata_front_cal_0916_calib.yaml` included |
 | `rosbag2_2026_09_10_camera_extrinsic` | 640×480 + VLP-16, indoor | 2 labeled frames · 4 boards · 36 correspondences |
 
 To rebuild a sample from a full extraction use `tools/extraction/make_sample.py`.
@@ -82,7 +82,7 @@ ROS; everything else in this repository runs without a ROS installation.
 rosbag2 ──extraction/export_bag.py──────────▶ png + pcd (time-synced pairs)
         ──gui/main.py───────────────────────▶ board_annotations.json  (human labeling)
         ──calibration/check_labels.py───────▶ are the labels sufficient?
-        ──calibration/solve_extrinsic.py────▶ extrinsic.json  (T_cam_lidar)
+        ──calibration/solve_extrinsic.py────▶ extrinsic.json + <name>_calib.yaml + camera_info.yaml
         ──calibration/project_lidar.py / make_video.py──▶ visual verification
 ```
 

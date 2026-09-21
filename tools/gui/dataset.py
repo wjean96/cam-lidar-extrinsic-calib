@@ -59,6 +59,38 @@ class Dataset:
     def name(self) -> str:
         return os.path.basename(self.root)
 
+    @property
+    def image_size(self):
+        """(width, height) of the images, read from the first frame."""
+        if not hasattr(self, "_image_size"):
+            img = self.image(0)
+            self._image_size = (int(img.shape[1]), int(img.shape[0]))
+        return self._image_size
+
+    def _meta(self) -> Dict:
+        p = os.path.join(self.root, "extraction_meta.json")
+        return json.load(open(p)) if os.path.isfile(p) else {}
+
+    @property
+    def camera_frame(self) -> str:
+        """Camera frame id for tf output: recorded header frame_id if any, else 'camera'."""
+        fid = (self._meta().get("image_frame_id") or "").strip().strip("/")
+        return fid or "camera"
+
+    @property
+    def lidar_frame(self) -> str:
+        """LiDAR frame id for tf output. 'map'/empty (misconfigured drivers) fall back to 'velodyne'."""
+        fid = (self._meta().get("lidar_frame_id") or "").strip().strip("/")
+        return fid if fid and fid not in ("map", "odom", "base_link") else "velodyne"
+
+    @property
+    def intrinsics_source(self) -> str:
+        p = os.path.join(self.root, "camera_intrinsic.json")
+        if os.path.isfile(p):
+            d = json.load(open(p))
+            return str(d.get("camera_intrinsic", d).get("source", ""))
+        return ""
+
     def __len__(self) -> int:
         return len(self.rows)
 

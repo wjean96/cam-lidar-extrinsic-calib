@@ -28,7 +28,7 @@ import cv2
 
 from common.annotations import AnnotationStore, BoardLabel
 from common.board import fit_square, square_fit_error
-from common.extrinsic import RefineOptions, diagnose, refine, reproject, solve
+from common.extrinsic import RefineOptions, diagnose, refine, reproject, solve, write_calib_outputs
 from common.plane import PlaneFrame, fit_board_plane
 from .cloud_panel import CloudPanel
 from .dataset import Dataset
@@ -749,11 +749,19 @@ class MainWindow(QMainWindow):
             L.append(f"    - {a}")
         L.append("")
         L.append("=== ROS static_transform_publisher ===")
-        L.append("  " + res.tf_command())
+        L.append("  " + res.tf_command(parent=self.ds.camera_frame, child=self.ds.lidar_frame))
+        L.append("")
+        L.append("=== files ===")
+        L.append(f"  {os.path.join(self.ds.root, 'extrinsic.json')}")
+        L.append(f"  {os.path.join(self.ds.root, self.ds.name + '_calib.yaml')}   (intrinsics + extrinsics + quality + tf)")
+        L.append(f"  {os.path.join(self.ds.root, self.ds.camera_frame + '_camera_info.yaml')}   (ROS camera_info)")
         self.result_text.setPlainText("\n".join(L))
 
     def _save_extrinsic(self, res, dg, info):
+        import time as _time
+        solved_at = _time.strftime("%Y-%m-%d %H:%M:%S")
         extra = {
+            "solved_at": solved_at,
             "dataset": self.ds.root,
             "annotations": self.store.path,
             "camera_matrix": np.asarray(self.K).tolist(),
@@ -774,6 +782,12 @@ class MainWindow(QMainWindow):
         path = os.path.join(self.ds.root, "extrinsic.json")
         with open(path, "w") as f:
             json.dump(res.to_dict(extra), f, indent=2, ensure_ascii=False)
+        # user-facing outputs: <dataset>_calib.yaml + <camera>_camera_info.yaml
+        self._calib_paths = write_calib_outputs(
+            self.ds.root, res, self.K, self.D, self.ds.image_size, self.ds.name,
+            camera_frame=self.ds.camera_frame, lidar_frame=self.ds.lidar_frame,
+            solved_at=solved_at,
+            intrinsics_source=self.ds.intrinsics_source, diagnosis=dg)
 
     def _toggle_overlay(self):
         self.image_panel.show_proj = self.chk_proj.isChecked()

@@ -5,8 +5,8 @@ For GitHub: the raw data (GBs) is excluded via .gitignore, and a handful of labe
 are copied so the GUI / solve / project_lidar still run out of the box.
 
 Copied: png/pcd of the chosen frames, index.csv and board_annotations.json trimmed to those
-frames, camera_intrinsic.json, and extrinsic.json (if given). extraction_meta.json only
-with --with-meta.
+frames, camera_intrinsic.json, extrinsic.json (if given) and the *_calib.yaml /
+*_camera_info.yaml outputs. extraction_meta.json only with --with-meta.
 
 Usage:
     python tools/extraction/make_sample.py \
@@ -100,6 +100,10 @@ def main() -> int:
                             if os.path.isfile(os.path.join(src, "extrinsic.json")) else None)
     if ex and os.path.isfile(ex):
         shutil.copy2(ex, os.path.join(out, "extrinsic.json"))
+    # the human-readable calibration outputs, if the solver produced them
+    import glob as _glob
+    for p in _glob.glob(os.path.join(src, "*_calib.yaml")) + _glob.glob(os.path.join(src, "*_camera_info.yaml")):
+        shutil.copy2(p, os.path.join(out, os.path.basename(p)))
 
     print(f"샘플: {out}")
     print(f"  프레임 {len(keys)}개 ({', '.join(keys)}), 라벨 대응점 {n_pts}개, "

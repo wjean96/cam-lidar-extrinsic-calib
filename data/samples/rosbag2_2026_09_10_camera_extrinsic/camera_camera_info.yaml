@@ -1,0 +1,21 @@
+# ROS camera_info format (camera_calibration / camera_info_manager compatible)
+image_width: 640
+image_height: 480
+camera_name: camera
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [648.242643, 0.000000, 304.728650, 0.000000, 638.992719, 227.912645, 0.000000, 0.000000, 1.000000]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [-0.428209, 0.202593, -0.000709, 0.000829, 0.000000]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [648.242643, 0.000000, 304.728650, 0.000000, 0.000000, 638.992719, 227.912645, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000]

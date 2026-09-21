@@ -36,7 +36,8 @@ tools/
 │   ├── check_labels.py      # are the labels sufficient? (stability / corner order / conditioning)
 │   ├── solve_extrinsic.py   # PnP optimization (EPnP -> LM)
 │   ├── project_lidar.py     # reprojection check images
-│   └── make_video.py        # LiDAR projection video (H.264)
+│   ├── make_video.py        # LiDAR projection video (H.264)
+│   └── export_calib.py      # regenerate <dataset>_calib.yaml / camera_info.yaml from extrinsic.json
 ```
 
 `common/` is library code; everything else is a CLI entry point. Scripts put `tools/` on
@@ -320,7 +321,10 @@ RANSAC thickness keeps the hand-aligned square: its pose is carried over into th
 # check whether the labels are sufficient (do this first)
 python tools/calibration/check_labels.py    --dataset data/export_data/<name>
 # optimize: EPnP initial guess -> LM reprojection refinement
+#   writes extrinsic.json + <name>_calib.yaml + <camera>_camera_info.yaml
 python tools/calibration/solve_extrinsic.py --dataset data/export_data/<name>
+# regenerate the two yaml files from an existing extrinsic.json (no re-solve)
+python tools/calibration/export_calib.py    --dataset data/export_data/<name> --camera-frame cam0
 # visual check: LiDAR projected onto images
 python tools/calibration/project_lidar.py   --dataset data/export_data/<name> --n 12
 # full-length video -> <dataset>/projection.mp4
@@ -328,6 +332,20 @@ python tools/calibration/make_video.py      --dataset data/export_data/<name> --
 # project a drive straight from the bag (--bag streaming)
 python tools/calibration/make_video.py      --bag data/bag_data/<drive> --extrinsic <dataset>/extrinsic.json --fps 20
 ```
+
+### Output files
+
+Every solve (CLI or GUI `F5`) writes three files into the dataset folder:
+
+| File | Purpose |
+|------|---------|
+| `extrinsic.json` | machine-readable, complete (used by `project_lidar.py`, `make_video.py`, `check_labels.py`) |
+| **`<dataset>_calib.yaml`** | **the one to hand to people**: intrinsics (fx fy cx cy, K, D), `T_cam_lidar` and its inverse, rvec / quaternion, camera position in the LiDAR frame in cm, mounting deviation, quality (RMS, leave-one-out stability, verdict), and ready-made `ros2 run tf2_ros static_transform_publisher` commands in both directions |
+| `<camera>_camera_info.yaml` | ROS `camera_info` format, loadable by `camera_info_manager` |
+
+Frame ids for the tf commands come from the extraction metadata (`cam0`, `velodyne`); override
+with `--camera-frame` / `--lidar-frame`. Convention throughout: `p_cam = R_cam_lidar · p_lidar + t_cam_lidar`,
+LiDAR = x forward / y left / z up, camera = optical (x right / y down / z forward).
 
 Details in [calibration/README.md](calibration/README.md).
 

@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from common.annotations import AnnotationStore
 from common.extrinsic import (RefineOptions, diagnose, refine, reproject, rot_to_euler_zyx,
-                              solve)
+                              solve, write_calib_outputs)
 from gui.dataset import Dataset
 
 # joint intrinsic refinement choices (disabled)
@@ -58,6 +58,12 @@ def main() -> int:
     ap.add_argument("--no-robust", action="store_true",
                     help="Huber 손실을 끄고 순수 최소제곱으로")
     ap.add_argument("--no-diagnose", action="store_true", help="신뢰도 진단 건너뛰기")
+    ap.add_argument("--camera-frame", default=None,
+                    help="tf 카메라 frame id (기본: 추출 메타의 image frame_id, 없으면 camera)")
+    ap.add_argument("--lidar-frame", default=None,
+                    help="tf LiDAR frame id (기본: 추출 메타의 lidar frame_id, 없으면 velodyne)")
+    ap.add_argument("--camera-name", default=None,
+                    help="calib.yaml / camera_info 에 적을 카메라 이름 (예: FF). 기본: camera frame id")
     args = ap.parse_args()
 
     ds = Dataset(args.dataset, cache_size=1)
@@ -181,6 +187,17 @@ def main() -> int:
     with open(out_path, "w") as f:
         json.dump(res.to_dict(extra), f, indent=2, ensure_ascii=False)
     print(f"\n저장: {out_path}")
+
+    # user-facing outputs next to the json: <dataset>_calib.yaml + <camera>_camera_info.yaml
+    cam_frame = args.camera_frame or ds.camera_frame
+    lid_frame = args.lidar_frame or ds.lidar_frame
+    yaml_path, ci_path = write_calib_outputs(
+        os.path.dirname(out_path), res, K, D, ds.image_size, ds.name,
+        camera_frame=cam_frame, lidar_frame=lid_frame,
+        solved_at=extra["solved_at"], intrinsics_source=ds.intrinsics_source, diagnosis=dg,
+        camera_name=args.camera_name)
+    print(f"      {yaml_path}   (내부+외부+품질+tf 명령, 사람이 읽는 용)")
+    print(f"      {ci_path}   (ROS camera_info)")
     print(f"확인: python tools/calibration/project_lidar.py --dataset {args.dataset}")
     return 0 if (dg is None or dg.stable) else 1
 
