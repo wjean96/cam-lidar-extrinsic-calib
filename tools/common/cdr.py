@@ -218,3 +218,65 @@ def decode(msg_type: str, buf: bytes):
             f"디코더가 없는 메시지 타입: {msg_type} (지원: {sorted(DECODERS)})"
         )
     return DECODERS[msg_type](buf)
+
+
+# ------------------------------------------------ small extras used by multi-camera export
+@dataclass
+class BoolMsg:
+    data: bool = False
+
+
+@dataclass
+class VelodyneScan:
+    """velodyne_msgs/VelodyneScan with packet stamps only (packet payloads are skipped)."""
+    header: Header = field(default_factory=Header)
+    packet_stamps_ns: List[int] = field(default_factory=list)
+    first_azimuth_deg: List[float] = field(default_factory=list)
+
+
+def decode_bool(buf: bytes) -> BoolMsg:
+    r = CdrReader(buf)
+    return BoolMsg(data=r.bool_())
+
+
+def decode_velodyne_scan(buf: bytes) -> VelodyneScan:
+    import struct
+    r = CdrReader(buf)
+    m = VelodyneScan(header=_read_header(r))
+    n = r.uint32()
+    for _ in range(n):
+        sec = r.int32()
+        nsec = r.uint32()
+        data = r.byte_array(1206)
+        m.packet_stamps_ns.append(sec * 1_000_000_000 + nsec)
+        m.first_azimuth_deg.append(struct.unpack_from("<H", data, 2)[0] / 100.0)
+    return m
+
+
+DECODERS["std_msgs/msg/Bool"] = decode_bool
+DECODERS["velodyne_msgs/msg/VelodyneScan"] = decode_velodyne_scan
+
+
+@dataclass
+class Odometry:
+    """nav_msgs/Odometry (pose + twist, covariances skipped)."""
+    header: Header = field(default_factory=Header)
+    child_frame_id: str = ""
+    position: List[float] = field(default_factory=list)      # x y z
+    orientation: List[float] = field(default_factory=list)   # x y z w
+    linear: List[float] = field(default_factory=list)        # vx vy vz
+    angular: List[float] = field(default_factory=list)       # wx wy wz
+
+
+def decode_odometry(buf: bytes) -> Odometry:
+    r = CdrReader(buf)
+    m = Odometry(header=_read_header(r), child_frame_id=r.string())
+    m.position = [r.float64() for _ in range(3)]
+    m.orientation = [r.float64() for _ in range(4)]
+    r.float64_array(36)                       # pose covariance
+    m.linear = [r.float64() for _ in range(3)]
+    m.angular = [r.float64() for _ in range(3)]
+    return m
+
+
+DECODERS["nav_msgs/msg/Odometry"] = decode_odometry

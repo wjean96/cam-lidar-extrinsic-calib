@@ -20,7 +20,8 @@ tools/
 │   └── intrinsics.py        # ost txt / ROS yaml / json intrinsics parsers
 ├── extraction/              # bag -> png / pcd
 │   ├── inspect_bag.py
-│   ├── export_bag.py
+│   ├── export_bag.py        # one camera + LiDAR, synced pairs (for calibration labeling)
+│   ├── export_multicam.py   # N cameras + LiDAR, time-corrected pairing (for drives / visualization)
 │   └── make_sample.py       # pick a few frames from an extraction as a repo-sized sample
 ├── gui/                     # labeling GUI (PySide6)
 │   ├── main.py              # entry point
@@ -37,7 +38,8 @@ tools/
 │   ├── solve_extrinsic.py   # PnP optimization (EPnP -> LM)
 │   ├── project_lidar.py     # reprojection check images
 │   ├── make_video.py        # LiDAR projection video (H.264)
-│   └── export_calib.py      # regenerate <dataset>_calib.yaml / camera_info.yaml from extrinsic.json
+│   ├── export_calib.py      # regenerate <dataset>_calib.yaml / camera_info.yaml from extrinsic.json
+│   └── check_time_lag.py    # camera-LiDAR time lag from edge alignment on a drive
 ```
 
 `common/` is library code; everything else is a CLI entry point. Scripts put `tools/` on
@@ -157,6 +159,63 @@ python tools/calibration/set_intrinsic.py --dataset data/export_data/<name> --k 
 
 It warns when the resolution / principal point does not match the dataset images (guards
 against pasting another camera's values).
+
+## 2b. Multi-camera drive extraction (`export_multicam.py`)
+
+For a drive with several cameras and one LiDAR (e.g. 6 cameras on the Sonata) use
+`export_multicam.py`. Every scan and every image is dumped **once** under its own stream index
+— images as the original JPEG bytes (no re-encode), clouds as PCD with all fields including the
+per-point `time` — and the camera<->scan pairing lives only in `index.csv`, so it can be
+recomputed with different time offsets without re-dumping:
+
+```bash
+python tools/extraction/export_multicam.py --bag data/bag_data/<drive> --out data/export_data/<name>
+# re-pair only (e.g. after measuring the camera latency):
+python tools/extraction/export_multicam.py --out data/export_data/<name> --repair-index --cam-latency-ms 140
+```
+
+```
+<name>/
+├── lidar/000000.pcd ...   lidar.csv   header (GPS), receive time, estimated host start/center
+├── cam0/000000.jpg ...    cam0.csv    header, receive time, trigger flag time     ... cam5
+├── intrinsics/camN.json   copied from data/intrinsics/camN_*.json
+├── index.csv              one row per scan: pcd + per camera (file, dt_ms, idx)
+└── sync_meta.json         timing model, offsets used, pairing statistics
+```
+
+### Timing model — measured on `sonata_0928_homecoming_cam_lidar`
+
+The obvious choices are both wrong on this rig:
+
+- **Bag receive time of `/velodyne_points` is 49 ms late with ±30 ms jitter** (point cloud
+  conversion). The LiDAR `header.stamp` is GPS time of the **scan end** (last packet; the
+  per-point `time` runs −49..0 ms), stable to 1 ms — use it, but it is on the GPS clock: the host
+  clock is ~134 ms behind (`lidar_clock_offset`, estimated from `/velodyne_packets` receive − last
+  packet stamp, low percentile).
+- **The camera `header.stamp` is ~140 ms after the exposure.** The `/lidar_Ncam_flag` topics fire
+  once per scan for all six cameras simultaneously, 12 ms before each image stamp — they are a
+  phase-locked 20 Hz pulse, not an exposure trigger, so they cannot be used as the exposure time.
+  The 140 ms was measured with `check_time_lag.py` (edge-alignment peak at +2.7 scans relative to a
+  7 ms assumption) and agrees with the independent busan-drive estimate (stamp ≈ scan center +135 ms).
+
+So: `scan_start = header + offset − sweep`, `scan_center = start + sweep/2`,
+`exposure = image.header − 140 ms`, pair = nearest exposure to scan center. Result: exposure −
+scan center = +4 ± 7 ms for all six cameras, 4445/4480 scans with all cameras. The six cameras
+expose within ±2 ms of each other; the sweep starts/ends at the front (azimuth 0, clockwise), so
+at the paired exposure the beam is at the rear — front cameras see points captured ~25 ms earlier,
+rear cameras ~0 ms. Use the per-point `time` for motion compensation if that matters.
+
+### Checking the lag on a new drive
+
+```bash
+python tools/calibration/check_time_lag.py --dataset data/export_data/<drive> \
+    --camera cam0 --extrinsic data/export_data/sonata_cam0/extrinsic.json \
+    --bag data/bag_data/<drive> --min-speed 2.5
+```
+It projects LiDAR silhouettes (range jumps along rings) into the paired image and its neighbours
+and reports which shift aligns best with the image edges; a peak at 0 means the pairing is right,
+otherwise it prints the `--cam-latency-ms` to re-pair with. Needs moving frames (it reads speed
+from the odometry topic) and a solved extrinsic for that camera.
 
 ## 3. Labeling GUI
 

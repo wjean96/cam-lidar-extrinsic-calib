@@ -1,0 +1,90 @@
+{
+  "image_width": 1280,
+  "image_height": 720,
+  "camera_matrix": [
+    688.422577,
+    0.0,
+    645.031383,
+    0.0,
+    690.045881,
+    352.682278,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "distortion_coefficients": [
+    -0.285512,
+    0.060462,
+    0.000458,
+    -0.000265,
+    0.0
+  ],
+  "distortion_model": "plumb_bob",
+  "camera_name": "cam2_sonata",
+  "source": "per-component median of 3 ROS 2 camera_calibration runs (260707calibration.txt, 2026-07-07); raw runs embedded in \"trials\"",
+  "trials": [
+    {
+      "file": "run1",
+      "camera_matrix": [
+        680.064384,
+        0.0,
+        645.031383,
+        0.0,
+        680.488191,
+        350.162058,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "distortion_coefficients": [
+        -0.300892,
+        0.07357,
+        0.000241,
+        -0.000265,
+        0.0
+      ]
+    },
+    {
+      "file": "run2",
+      "camera_matrix": [
+        688.422577,
+        0.0,
+        656.116719,
+        0.0,
+        690.045881,
+        353.437993,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "distortion_coefficients": [
+        -0.279452,
+        0.058039,
+        0.000458,
+        -0.000937,
+        0.0
+      ]
+    },
+    {
+      "file": "run3",
+      "camera_matrix": [
+        708.396995,
+        0.0,
+        629.104617,
+        0.0,
+        708.180105,
+        352.682278,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "distortion_coefficients": [
+        -0.285512,
+        0.060462,
+        0.000497,
+        0.00089,
+        0.0
+      ]
+    }
+  ]
+}
