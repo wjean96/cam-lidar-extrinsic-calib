@@ -171,7 +171,7 @@ recomputed with different time offsets without re-dumping:
 ```bash
 python tools/extraction/export_multicam.py --bag data/bag_data/<drive> --out data/export_data/<name>
 # re-pair only (e.g. after measuring the camera latency):
-python tools/extraction/export_multicam.py --out data/export_data/<name> --repair-index --cam-latency-ms 140
+python tools/extraction/export_multicam.py --out data/export_data/<name> --repair-index --cam-latency-ms 135
 ```
 
 ```
@@ -192,15 +192,15 @@ The obvious choices are both wrong on this rig:
   per-point `time` runs −49..0 ms), stable to 1 ms — use it, but it is on the GPS clock: the host
   clock is ~134 ms behind (`lidar_clock_offset`, estimated from `/velodyne_packets` receive − last
   packet stamp, low percentile).
-- **The camera `header.stamp` is ~140 ms after the exposure.** The `/lidar_Ncam_flag` topics fire
+- **The camera `header.stamp` is ~135 ms after the exposure.** The `/lidar_Ncam_flag` topics fire
   once per scan for all six cameras simultaneously, 12 ms before each image stamp — they are a
   phase-locked 20 Hz pulse, not an exposure trigger, so they cannot be used as the exposure time.
-  The 140 ms was measured with `check_time_lag.py` (edge-alignment peak at +2.7 scans relative to a
-  7 ms assumption) and agrees with the independent busan-drive estimate (stamp ≈ scan center +135 ms).
+  The 135 ms was measured with `check_time_lag.py` (edge-alignment peak; two runs gave 128 and
+  142 ms) and agrees with the independent busan-drive estimate (stamp ≈ scan center +135 ms).
 
 So: `scan_start = header + offset − sweep`, `scan_center = start + sweep/2`,
-`exposure = image.header − 140 ms`, pair = nearest exposure to scan center. Result: exposure −
-scan center = +4 ± 7 ms for all six cameras, 4445/4480 scans with all cameras. The six cameras
+`exposure = image.header − 135 ms`, pair = nearest exposure to scan center. Result: exposure −
+scan center = +9 ± 7 ms for all six cameras, 4445/4480 scans with all cameras. The six cameras
 expose within ±2 ms of each other; the sweep starts/ends at the front (azimuth 0, clockwise), so
 at the paired exposure the beam is at the rear — front cameras see points captured ~25 ms earlier,
 rear cameras ~0 ms. Use the per-point `time` for motion compensation if that matters.
