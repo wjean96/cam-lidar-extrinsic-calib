@@ -161,11 +161,13 @@ def main() -> int:
         if den < 0:
             peak = shifts[ib] + 0.5 * (a - c) / den
     lag_ms = peak * period_ms
-    used = float(meta.get("cam_latency_ms", 0.0))
+    used = meta.get("cam_latency_ms", 0.0)
+    used = float(used.get(args.camera, 0.0)) if isinstance(used, dict) else float(used)
     print(f"\n  peak at shift {peak:+.2f} -> images that match the LiDAR are stamped {lag_ms:+.0f} ms later than the current pairing")
     print(f"  current cam_latency_ms = {used:.0f}; suggested = {used + lag_ms:.0f}"
           + ("   (pairing is consistent)" if abs(lag_ms) < period_ms / 2 else
-             f"   -> re-pair: export_multicam.py --out {args.dataset} --repair-index --cam-latency-ms {used + lag_ms:.0f}"))
+             f"   -> re-pair: export_multicam.py --out {args.dataset} --repair-index "
+             f"--cam-latency-ms {args.camera}={used + lag_ms:.0f}"))
     out = args.out or os.path.join(ds, f"lag_check_{args.camera}.json")
     json.dump({"camera": args.camera, "frames": int(M.shape[1]), "period_ms": period_ms, "shifts": shifts,
                "score_mean": mean.tolist(), "best_fraction": [float(np.mean(best == i)) for i in range(len(shifts))],

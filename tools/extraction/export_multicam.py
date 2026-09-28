@@ -120,6 +120,33 @@ def nearest(sorted_ts: np.ndarray, t: float):
     return k, sorted_ts[k] - t
 
 
+def parse_latency(spec, cams: List[str], fallback: Optional[Dict[str, float]] = None) -> Dict[str, float]:
+    """'135' -> every camera 135; 'cam0=135,cam1=85' -> per camera (others: fallback or 7)."""
+    if isinstance(spec, dict):
+        return {c: float(spec.get(c, 7.0)) for c in cams}
+    spec = str(spec).strip()
+    default = 7.0
+    per: Dict[str, float] = {}
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "=" in part:
+            k, v = part.split("=", 1)
+            per[k.strip()] = float(v)
+        else:
+            default = float(part)
+    out = {}
+    for c in cams:
+        if c in per:
+            out[c] = per[c]
+        elif "=" in spec and fallback and c in fallback:
+            out[c] = float(fallback[c])          # keep the previous value for cameras not listed
+        else:
+            out[c] = default
+    return out
+
+
 # ----------------------------------------------------------------------------- dumping
 def dump(bag: Bag2Reader, out: str, lidar_topic: str, cam_topics: Dict[str, str],
          flag_pattern: str, stride: int, keep_nan: bool, verbose=True):
@@ -184,7 +211,10 @@ def dump(bag: Bag2Reader, out: str, lidar_topic: str, cam_topics: Dict[str, str]
 
 # ----------------------------------------------------------------------------- pairing
 def build_index(out: str, cams: List[str], lidar_offset_ns: float, sweep_ns: float,
-                cam_latency_ns: float, max_dt_ns: float, header_is: str = "end", verbose=True):
+                cam_latency_ns, max_dt_ns: float, header_is: str = "end", verbose=True):
+    """cam_latency_ns: one number or {cam: ns}."""
+    if not isinstance(cam_latency_ns, dict):
+        cam_latency_ns = {c: float(cam_latency_ns) for c in cams}
     lid = list(csv.DictReader(open(os.path.join(out, "lidar.csv"))))
     H = np.array([float(r["header_gps_ns"]) + lidar_offset_ns for r in lid])
     L_start = H - sweep_ns if header_is == "end" else H
@@ -194,7 +224,7 @@ def build_index(out: str, cams: List[str], lidar_offset_ns: float, sweep_ns: flo
     for c in cams:
         rows = list(csv.DictReader(open(os.path.join(out, f"{c}.csv"))))
         cam_rows[c] = rows
-        cam_expo[c] = np.array([float(r["header_ns"]) - cam_latency_ns for r in rows])
+        cam_expo[c] = np.array([float(r["header_ns"]) - cam_latency_ns[c] for r in rows])
         assert np.all(np.diff(cam_expo[c]) > 0), f"{c}: stamps not monotonic"
 
     fields = ["index", "pcd_file", "lidar_start_host_ns", "lidar_center_host_ns"]
@@ -227,7 +257,7 @@ def build_index(out: str, cams: List[str], lidar_offset_ns: float, sweep_ns: flo
                       "abs_dt_ms_max": float(np.abs(a).max()) if len(a) else None}
         if verbose:
             s = summary[c]
-            print(f"  {c}: paired {s['paired']}/{len(lid)}  dt(exposure - scan center) median "
+            print(f"  {c} (latency {cam_latency_ns[c] / 1e6:.0f} ms): paired {s['paired']}/{len(lid)}  dt(exposure - scan center) median "
                   f"{s['dt_ms_median']:+.1f} ms  p5..p95 {s['dt_ms_p5']:+.1f}..{s['dt_ms_p95']:+.1f}  max|dt| {s['abs_dt_ms_max']:.1f}")
     if verbose:
         print(f"  scans with all {len(cams)} cameras: {n_full}/{len(lid)}")
@@ -254,8 +284,9 @@ def main() -> int:
     ap.add_argument("--sweep-ms", default="auto", help="scan sweep length [ms]; 'auto' from packets, else 50")
     ap.add_argument("--lidar-header", choices=["auto", "start", "end"], default="auto",
                     help="whether points.header.stamp is the scan start or end; auto = compare with /velodyne_packets")
-    ap.add_argument("--cam-latency-ms", type=float, default=7.0,
-                    help="image.header.stamp - exposure [ms] (trigger flag -> stamp is ~12 ms on this rig)")
+    ap.add_argument("--cam-latency-ms", default="7",
+                    help="image.header.stamp - exposure [ms]. One number for all cameras, or per camera as "
+                         "cam0=135,cam1=85,... (unlisted cameras use the plain number if given, else 7)")
     ap.add_argument("--max-dt", type=float, default=30.0, help="drop a camera for a scan if |dt| exceeds this [ms]")
     ap.add_argument("--repair-index", action="store_true",
                     help="only recompute index.csv from the dumped files with the given offsets")
@@ -271,12 +302,15 @@ def main() -> int:
         off = float(meta["lidar_clock_offset_ms"]) if args.lidar_clock_offset_ms == "auto" else float(args.lidar_clock_offset_ms)
         sweep = float(meta.get("sweep_ms", 50.0)) if args.sweep_ms == "auto" else float(args.sweep_ms)
         header_is = meta.get("lidar_header", "end") if args.lidar_header == "auto" else args.lidar_header
+        prev = meta.get("cam_latency_ms")
+        prev = prev if isinstance(prev, dict) else ({c: prev for c in cams} if prev is not None else None)
+        lat = parse_latency(args.cam_latency_ms, cams, fallback=prev)
         print(f"repair index: lidar offset {off:+.1f} ms, sweep {sweep:.1f} ms, header = scan {header_is}, "
-              f"cam latency {args.cam_latency_ms:.1f} ms")
-        summary, n_full = build_index(out, cams, off * 1e6, sweep * 1e6, args.cam_latency_ms * 1e6, args.max_dt * 1e6,
-                                      header_is=header_is)
+              f"cam latency " + ", ".join(f"{c}={v:.0f}" for c, v in lat.items()) + " ms")
+        summary, n_full = build_index(out, cams, off * 1e6, sweep * 1e6, {c: v * 1e6 for c, v in lat.items()},
+                                      args.max_dt * 1e6, header_is=header_is)
         meta.update({"lidar_clock_offset_ms": off, "sweep_ms": sweep, "lidar_header": header_is,
-                     "cam_latency_ms": args.cam_latency_ms,
+                     "cam_latency_ms": lat,
                      "max_dt_ms": args.max_dt, "pairing": summary, "scans_with_all_cameras": n_full,
                      "index_rebuilt_at": time.strftime("%Y-%m-%d %H:%M:%S")})
         json.dump(meta, open(meta_path, "w"), indent=2)
@@ -316,8 +350,9 @@ def main() -> int:
         if header_is is None:
             header_is = "end"
             print("  ! could not detect header semantics (no /velodyne_packets); assuming points.header = scan end")
+        lat = parse_latency(args.cam_latency_ms, list(cam_topics))
         print(f"timing  : lidar header = scan {header_is}, header -> host offset {off_ns / 1e6:+.1f} ms, "
-              f"sweep {sweep_ns / 1e6:.1f} ms, camera latency {args.cam_latency_ms:.1f} ms")
+              f"sweep {sweep_ns / 1e6:.1f} ms, camera latency " + ", ".join(f"{c}={v:.0f}" for c, v in lat.items()) + " ms")
 
         print("dumping ...")
         cams = dump(bag, out, args.lidar_topic, cam_topics, args.flag_pattern, args.stride, args.keep_nan)
@@ -332,8 +367,8 @@ def main() -> int:
     print(f"intrinsics copied for: {', '.join(copied) if copied else '(none found in ' + args.intrinsic_dir + ')'}")
 
     print("pairing ...")
-    summary, n_full = build_index(out, cams, off_ns, sweep_ns, args.cam_latency_ms * 1e6, args.max_dt * 1e6,
-                                  header_is=header_is)
+    summary, n_full = build_index(out, cams, off_ns, sweep_ns, {c: v * 1e6 for c, v in lat.items()},
+                                  args.max_dt * 1e6, header_is=header_is)
 
     # flag statistics for the record (stamp - flag per camera)
     flag_stats = {}
@@ -349,7 +384,7 @@ def main() -> int:
                             "else H; scan_center = start + sweep/2; exposure_host = image.header - cam_latency; "
                             "pair = nearest exposure to scan center",
             "lidar_clock_offset_ms": off_ns / 1e6, "sweep_ms": sweep_ns / 1e6, "lidar_header": header_is,
-            "cam_latency_ms": args.cam_latency_ms,
+            "cam_latency_ms": lat,
             "max_dt_ms": args.max_dt, "stride": args.stride, "trigger_flags": flag_stats,
             "pairing": summary, "scans_with_all_cameras": n_full}
     json.dump(meta, open(meta_path, "w"), indent=2)

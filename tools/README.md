@@ -39,7 +39,8 @@ tools/
 │   ├── project_lidar.py     # reprojection check images
 │   ├── make_video.py        # LiDAR projection video (H.264)
 │   ├── export_calib.py      # regenerate <dataset>_calib.yaml / camera_info.yaml from extrinsic.json
-│   └── check_time_lag.py    # camera-LiDAR time lag from edge alignment on a drive
+│   ├── check_time_lag.py    # camera-LiDAR time lag from edge alignment on a drive
+│   └── make_video_multicam.py  # 6-camera mosaic (+ top view) projection video
 ```
 
 `common/` is library code; everything else is a CLI entry point. Scripts put `tools/` on
@@ -170,8 +171,9 @@ recomputed with different time offsets without re-dumping:
 
 ```bash
 python tools/extraction/export_multicam.py --bag data/bag_data/<drive> --out data/export_data/<name>
-# re-pair only (e.g. after measuring the camera latency):
-python tools/extraction/export_multicam.py --out data/export_data/<name> --repair-index --cam-latency-ms 135
+# re-pair only (e.g. after measuring the camera latency; one value or per camera):
+python tools/extraction/export_multicam.py --out data/export_data/<name> --repair-index \
+    --cam-latency-ms "cam0=125,cam1=87,cam2=87,cam3=87,cam4=125,cam5=125"
 ```
 
 ```
@@ -192,15 +194,18 @@ The obvious choices are both wrong on this rig:
   per-point `time` runs −49..0 ms), stable to 1 ms — use it, but it is on the GPS clock: the host
   clock is ~134 ms behind (`lidar_clock_offset`, estimated from `/velodyne_packets` receive − last
   packet stamp, low percentile).
-- **The camera `header.stamp` is ~135 ms after the exposure.** The `/lidar_Ncam_flag` topics fire
-  once per scan for all six cameras simultaneously, 12 ms before each image stamp — they are a
-  phase-locked 20 Hz pulse, not an exposure trigger, so they cannot be used as the exposure time.
-  The 135 ms was measured with `check_time_lag.py` (edge-alignment peak; two runs gave 128 and
-  142 ms) and agrees with the independent busan-drive estimate (stamp ≈ scan center +135 ms).
+- **The camera `header.stamp` is 90–130 ms after the exposure, and not the same for all
+  cameras.** The `/lidar_Ncam_flag` topics fire once per scan for all six cameras simultaneously,
+  12 ms before each image stamp — they are a phase-locked 20 Hz pulse, not an exposure trigger, and
+  the six stamps agree to ±2 ms even though the exposures do not. `check_time_lag.py` (edge
+  alignment on moving frames) puts cam0/cam4/cam5 at ~125 ms and **cam1/cam2/cam3 exactly one frame
+  earlier, ~87 ms** — most likely two capture boards with one frame of buffering difference. The
+  cam0 value agrees with the independent busan-drive estimate. Always measure per camera.
 
 So: `scan_start = header + offset − sweep`, `scan_center = start + sweep/2`,
-`exposure = image.header − 135 ms`, pair = nearest exposure to scan center. Result: exposure −
-scan center = +9 ± 7 ms for all six cameras, 4445/4480 scans with all cameras. The six cameras
+`exposure = image.header − latency[cam]`, pair = nearest exposure to scan center
+(`--cam-latency-ms cam0=125,cam1=87,...`). Result: exposure − scan center = +7…+19 ms (±7) for all
+six cameras, 4436/4480 scans with all cameras. The six cameras
 expose within ±2 ms of each other; the sweep starts/ends at the front (azimuth 0, clockwise), so
 at the paired exposure the beam is at the rear — front cameras see points captured ~25 ms earlier,
 rear cameras ~0 ms. Use the per-point `time` for motion compensation if that matters.
@@ -214,8 +219,20 @@ python tools/calibration/check_time_lag.py --dataset data/export_data/<drive> \
 ```
 It projects LiDAR silhouettes (range jumps along rings) into the paired image and its neighbours
 and reports which shift aligns best with the image edges; a peak at 0 means the pairing is right,
-otherwise it prints the `--cam-latency-ms` to re-pair with. Needs moving frames (it reads speed
-from the odometry topic) and a solved extrinsic for that camera.
+otherwise it prints the `--cam-latency-ms camN=…` to re-pair with. Needs moving frames (it reads
+speed from the odometry topic) and a solved extrinsic for that camera. The front camera straddles
+the scan boundary (the sweep starts/ends at azimuth 0), so its sub-scan estimate is the noisiest;
+only the integer-scan result matters for pairing.
+
+### Six-camera projection video
+
+```bash
+python tools/calibration/make_video_multicam.py --dataset data/export_data/<drive> \
+    --extrinsic-pattern "data/export_data/sonata_{cam}/extrinsic.json" \
+    --layout cam5,cam0,cam1/cam4,cam3,cam2 --bev 720 --fps 20
+```
+Each tile is one camera with the paired scan projected through its own extrinsic (color = depth,
+`dt` = exposure − scan center); `--bev` adds a top-view LiDAR tile. Output is H.264 via ffmpeg.
 
 ## 3. Labeling GUI
 
