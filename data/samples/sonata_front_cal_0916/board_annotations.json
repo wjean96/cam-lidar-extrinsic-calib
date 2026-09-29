@@ -3,7 +3,7 @@
   "board_size": 0.5,
   "corner_order": "topmost corner first, then clockwise as seen from the sensor",
   "grid_index_rule": "index = j*(n+1) + i with corner 0 as origin; i runs from corner 0 to corner 1",
-  "saved_at": "2026-09-29 16:55:02",
+  "saved_at": "2026-09-20 20:28:30",
   "frames": {
     "000000": {
       "boards": [
@@ -1957,7 +1957,7 @@
       ],
       "enabled": true,
       "note": "",
-      "updated": "2026-09-29 16:53:14"
+      "updated": "2026-09-16 20:01:25"
     },
     "000400": {
       "boards": [
