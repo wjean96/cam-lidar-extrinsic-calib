@@ -11,7 +11,8 @@ data/export_data/
 *.db3
 *.db3-shm
 *.db3-wal
-
+*.json
+*.yaml
 # ---- 샘플과 내부 파라미터는 올린다 ------------------------------------------
 !data/samples/
 !data/intrinsics/
