@@ -27,6 +27,7 @@ tools/
 │   ├── main.py              # entry point
 │   ├── app.py               # main window / workflow
 │   ├── dataset.py           # extraction folder loader
+│   ├── session.py           # dataset folder picker / validation / window switching
 │   ├── image_panel.py       # camera: 4 corners per board (with magnifier), grid vertices
 │   ├── cloud_panel.py       # LiDAR 3D view + box selection
 │   ├── plane_panel.py       # in-plane 2D view + 50 cm square gizmo
@@ -241,11 +242,38 @@ Each tile is one camera with the paired scan projected through its own extrinsic
 python tools/gui/main.py \
     --dataset data/export_data/sonata_front_cal_0916 \
     --frame 000000 --grid 2
+
+# or start with no dataset and pick the folder in the GUI
+python tools/gui/main.py
 ```
 
 Three panels — camera on the left, LiDAR 3D top right, in-plane 2D bottom right.
 There is no automatic detection: everything is placed by a human, and RANSAC only runs
 inside the region the user dragged.
+
+### Opening a dataset from the GUI
+
+`--dataset` is optional. Without it the GUI opens a folder dialog, and `Open… (Ctrl+O)`
+switches to another dataset at any time — the labels of the current one are saved on the
+way out, as on a normal close. Pick the dataset folder itself, the one holding `index.csv`,
+not its parent:
+
+```
+<dataset>/
+  index.csv               required — one row per frame,
+                          columns: index, image_file, pcd_file
+  images/000000.png       camera frame, path taken from index.csv:image_file
+  pointclouds/000000.pcd  LiDAR frame,  path taken from index.csv:pcd_file
+  camera_intrinsic.json   intrinsics; also read from extraction_meta.json,
+                          *camera*.yaml (ROS camera_info) or *intrinsic*.txt (ost)
+  board_annotations.json  labels — created on the first save
+```
+
+Only `index.csv` and the files it points at are required. A folder without intrinsics still
+opens and labels fine, but `Solve extrinsics` refuses with *No intrinsics* until a `K` is
+found. A folder that cannot be loaded is rejected with the reason — missing column, missing
+file, or a parent folder picked by mistake, in which case the dataset subfolders are listed —
+and the dialog reopens instead of the process dying. `export_bag.py` writes this layout.
 
 ### Several boards per frame
 
@@ -360,6 +388,7 @@ Intrinsics are always kept fixed (see calibration/README.md for why joint refine
 | `3` | clear this board |
 | `4` | reset the image grid to the homography default |
 | `Space` | include / exclude this frame |
+| `Ctrl+O` | open another dataset folder |
 | `Ctrl+S` | save |
 | `F5` | solve extrinsics (result dock + overlays) |
 | camera view `[` `]` | rotate the corner order by one |

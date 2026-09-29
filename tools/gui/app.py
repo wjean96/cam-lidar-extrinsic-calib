@@ -30,6 +30,7 @@ from common.annotations import AnnotationStore, BoardLabel
 from common.board import fit_square, square_fit_error
 from common.extrinsic import RefineOptions, diagnose, refine, reproject, solve, write_calib_outputs
 from common.plane import PlaneFrame, fit_board_plane
+from . import session
 from .cloud_panel import CloudPanel
 from .dataset import Dataset
 from .image_panel import ImagePanel
@@ -174,6 +175,8 @@ class MainWindow(QMainWindow):
         tb.setMovable(False)
         self.lbl_frame = QLabel("")
         self.lbl_frame.setMinimumWidth(180)
+        tb.addWidget(QPushButton("Open… (Ctrl+O)", clicked=self.open_dataset))
+        tb.addSeparator()
         tb.addWidget(QPushButton("◀ Prev", clicked=lambda: self.step(-1)))
         tb.addWidget(self.lbl_frame)
         tb.addWidget(QPushButton("Next ▶", clicked=lambda: self.step(+1)))
@@ -359,6 +362,7 @@ class MainWindow(QMainWindow):
         act("4", self.reset_image_grid)
         act("N", self.add_board)
         act("Tab", self.next_board)
+        act("Ctrl+O", self.open_dataset)
         act("Ctrl+S", self.save)
         act("F5", self.run_solve)
         act("Space", lambda: self.chk_enabled.toggle())
@@ -823,7 +827,21 @@ class MainWindow(QMainWindow):
             pairs.append((reproject(o, R, t, K, D), np.asarray(i2, float), bi))
         self.image_panel.set_reprojection(pairs)
 
-    # ----------------------------------------------------------------- saving
+    # ------------------------------------------------------------ dataset / saving
+    def open_dataset(self):
+        """Switch to another dataset folder. The labels of this one are saved on close."""
+        path = session.choose_dataset(self, os.path.dirname(self.ds.root))
+        if not path:
+            return
+        if os.path.abspath(path) == self.ds.root:
+            self.status.showMessage(f"Already open: {self.ds.name}", 4000)
+            return
+        try:
+            session.open_window(path, self.board_size, self.spin_grid.value(), replace=self)
+        except Exception as e:
+            QMessageBox.critical(self, "Cannot open dataset",
+                                 f"{path}\n\n{e}\n\n{session.LAYOUT_HELP}")
+
     def save(self):
         self.store.save()
         self.status.showMessage(
@@ -840,6 +858,7 @@ class MainWindow(QMainWindow):
                 return
             if r == QMessageBox.Save:
                 self.store.save()
+        session.forget(self)
         ev.accept()
 
     # ----------------------------------------------------------------- status

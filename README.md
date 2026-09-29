@@ -18,8 +18,8 @@ with the checker cells (bottom right), and the solve result dock:
 ![Labeling GUI](docs/images/gui_overview.jpg)
 
 | LiDAR 3D view — six labeled boards, viewed head-on | Plane 2D view — grid aligned with the black/white cells |
-|:--:|:--:|
-| ![LiDAR panel](docs/images/lidar_panel.png) | ![Plane panel](docs/images/plane_panel.png) |
+| :-------------------------------------------------: | :------------------------------------------------------: |
+|     ![LiDAR panel](docs/images/lidar_panel.png)     |       ![Plane panel](docs/images/plane_panel.png)       |
 
 Full usage and folder layout: [tools/README.md](tools/README.md).
 Calibration procedure, accuracy and pitfalls: [tools/calibration/README.md](tools/calibration/README.md).
@@ -50,10 +50,10 @@ data/
 └── export_data/  extracted png/pcd, videos       (.gitignore)
 ```
 
-| Sample | Sensors | Contents |
-|--------|---------|----------|
-| `sonata_front_cal_0916` | cam0 1280×720 + VLP-32, outdoor | 4 labeled frames · 23 boards · 207 correspondences · final `extrinsic.json` + `sonata_front_cal_0916_calib.yaml` included |
-| `rosbag2_2026_09_10_camera_extrinsic` | 640×480 + VLP-16, indoor | 2 labeled frames · 4 boards · 36 correspondences |
+| Sample                                  | Sensors                          | Contents                                                                                                                        |
+| --------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `sonata_front_cal_0916`               | cam0 1280×720 + VLP-32, outdoor | 4 labeled frames · 23 boards · 207 correspondences · final`extrinsic.json` + `sonata_front_cal_0916_calib.yaml` included |
+| `rosbag2_2026_09_10_camera_extrinsic` | 640×480 + VLP-16, indoor        | 2 labeled frames · 4 boards · 36 correspondences                                                                              |
 
 To rebuild a sample from a full extraction use `tools/extraction/make_sample.py`.
 
